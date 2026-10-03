@@ -1,0 +1,61 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><title>Wheelie Rush 2D</title>
+<style>html,body{margin:0;overflow:hidden;background:#151515;color:#fff;font-family:Arial,sans-serif;touch-action:none}canvas{display:block}.hud{position:fixed;left:12px;top:10px;font-weight:800;text-shadow:2px 2px #000;pointer-events:none}.garage{position:fixed;right:10px;top:10px;background:#000b;padding:8px;border-radius:12px}button,select{font-size:14px;padding:8px;border:0;border-radius:8px;margin:2px}.controls{position:fixed;bottom:14px;width:100%;display:flex;justify-content:space-around}.ctrl{width:29vw;height:62px;font-size:17px;font-weight:900;background:#fffD}.mini{font-size:12px;color:#ddd}</style></head><body>
+<canvas id="c"></canvas><div class="hud">WHEELIE RUSH 2D<div id="info"></div><div class="mini">→ Gas • ← Brake • Space Wheelie</div></div>
+<div class="garage"><select id="ride"></select><button id="reset">RESET</button></div>
+<div class="controls"><button class="ctrl" id="brake">BRAKE</button><button class="ctrl" id="wheelie">WHEELIE</button><button class="ctrl" id="gas">GAS</button></div>
+<script>
+const C=document.querySelector('#c'),ctx=C.getContext('2d');let W,H;function resize(){W=C.width=innerWidth;H=C.height=innerHeight}resize();addEventListener('resize',resize);
+const rides=[];for(let i=1;i<=10;i++)rides.push({name:'Volt E-Bike '+i,type:'E-BIKE',max:43+i,color:`hsl(${180+i*12} 80% 50%)`});
+for(let i=1;i<=10;i++)rides.push({name:'MX Dirt Bike '+i,type:'DIRT BIKE',max:52+i*1.3,color:`hsl(${i*29} 82% 50%)`});
+for(let i=1;i<=10;i++)rides.push({name:'Turbo Quad '+i,type:'TUNED QUAD',max:62+i*1.5,color:`hsl(${290+i*10} 82% 52%)`});
+const S=document.querySelector('#ride');rides.forEach((r,i)=>S.add(new Option(`${i+1}. ${r.name}`,i)));S.value=10;
+let idx=10,speed=0,ang=0,dist=0,score=0,gas=0,wheel=0,brake=0,last=performance.now(),audio=null;
+function r(){return rides[idx]} function initAudio(){if(!audio)audio=new (AudioContext||webkitAudioContext)()}
+function engine(){if(!audio||speed<1)return;let o=audio.createOscillator(),g=audio.createGain(),t=audio.currentTime,R=r();
+if(R.type==='DIRT BIKE'){o.type='sawtooth';o.frequency.value=65+speed*4.4;g.gain.value=.055}
+else if(R.type==='E-BIKE'){o.type='sine';o.frequency.value=180+speed*9;g.gain.value=.025}
+else{o.type='square';o.frequency.value=70+speed*3;g.gain.value=.04}
+o.connect(g).connect(audio.destination);o.start();o.stop(t+.04);
+if(R.type==='TUNED QUAD'&&gas&&speed>32&&Math.random()<.04){let q=audio.createOscillator(),a=audio.createGain();q.type='sine';q.frequency.setValueAtTime(450,t);q.frequency.exponentialRampToValueAtTime(1500,t+.12);a.gain.setValueAtTime(.06,t);a.gain.exponentialRampToValueAtTime(.001,t+.13);q.connect(a).connect(audio.destination);q.start();q.stop(t+.14)}}
+function bind(id,key){let e=document.querySelector('#'+id);e.onpointerdown=()=>{initAudio();window[key]=1};e.onpointerup=e.onpointercancel=()=>window[key]=0}
+bind('gas','gas');bind('brake','brake');bind('wheelie','wheelie');
+onkeydown=e=>{initAudio();if(e.code==='ArrowRight')gas=1;if(e.code==='ArrowLeft')brake=1;if(e.code==='Space')wheel=1};onkeyup=e=>{if(e.code==='ArrowRight')gas=0;if(e.code==='ArrowLeft')brake=0;if(e.code==='Space')wheel=0};
+S.onchange=()=>{idx=+S.value;speed=ang=0};document.querySelector('#reset').onclick=()=>speed=ang=dist=score=0;
+function terrain(wx){return H*.73+Math.sin(wx*.008)*22+Math.sin(wx*.021)*7}
+function map(){
+ let cam=dist*11, grd=ctx.createLinearGradient(0,0,0,H);grd.addColorStop(0,'#552f78');grd.addColorStop(.55,'#ef8556');grd.addColorStop(1,'#b46c37');ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+ ctx.fillStyle='#563c35';ctx.beginPath();ctx.moveTo(0,H*.58);for(let X=0;X<=W;X+=30){let wx=X+cam*.18;ctx.lineTo(X,H*.58-Math.sin(wx*.005)*45-Math.sin(wx*.012)*20)}ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.fill();
+ ctx.fillStyle='#bd7a42';ctx.beginPath();ctx.moveTo(0,H);for(let X=0;X<=W;X+=8)ctx.lineTo(X,terrain(X+cam));ctx.lineTo(W,H);ctx.fill();
+ ctx.strokeStyle='#e3a65c';ctx.lineWidth=5;ctx.beginPath();for(let X=0;X<=W;X+=8){let y=terrain(X+cam)-3;X?ctx.lineTo(X,y):ctx.moveTo(X,y)}ctx.stroke();
+ for(let k=0;k<7;k++){let px=((k*230-cam*.65)%(W+300)+W+300)%(W+300)-120,py=terrain(px+cam)-2;ctx.fillStyle='#315c35';ctx.fillRect(px-4,py-58,8,58);ctx.fillRect(px-17,py-42,13,7);ctx.fillRect(px+4,py-31,14,7)}
+}
+function wheelDraw(x,y,rad){ctx.fillStyle='#151515';ctx.beginPath();ctx.arc(x,y,rad,0,7);ctx.fill();ctx.strokeStyle='#aaa';ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,rad-6,0,7);ctx.stroke();ctx.strokeStyle='#777';ctx.lineWidth=1;for(let a=0;a<6.3;a+=.52){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(a)*(rad-7),y+Math.sin(a)*(rad-7));ctx.stroke()}}
+function dirtbike(cx,cy,R){
+ ctx.save();ctx.translate(cx,cy);ctx.rotate(-ang);let rear=-48,front=51,wy=23;wheelDraw(rear,wy,23);wheelDraw(front,wy,23);
+ // swingarm + forks
+ ctx.strokeStyle='#aaa';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(rear,wy);ctx.lineTo(-5,8);ctx.lineTo(20,-17);ctx.stroke();
+ ctx.strokeStyle='#d8d8d8';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(25,-24);ctx.lineTo(front,wy);ctx.stroke();
+ // engine
+ ctx.fillStyle='#555';ctx.beginPath();ctx.roundRect(-15,-2,30,27,5);ctx.fill();ctx.fillStyle='#222';ctx.fillRect(-9,3,18,15);
+ // frame
+ ctx.strokeStyle=R.color;ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(-7,8);ctx.lineTo(-24,-23);ctx.lineTo(23,-20);ctx.lineTo(-7,8);ctx.stroke();
+ // tank/shrouds
+ ctx.fillStyle=R.color;ctx.beginPath();ctx.moveTo(-27,-29);ctx.lineTo(15,-32);ctx.lineTo(29,-17);ctx.lineTo(-13,-13);ctx.closePath();ctx.fill();
+ ctx.fillStyle='#f3f3f3';ctx.fillRect(15,-36,18,18);ctx.fillStyle='#222';ctx.font='bold 12px Arial';ctx.fillText((idx-9)+'',19,-22);
+ // seat
+ ctx.fillStyle='#171717';ctx.beginPath();ctx.roundRect(-42,-37,55,9,4);ctx.fill();
+ // rear fender flexes/bends upward during wheelie
+ let flex=Math.max(0,(ang-.18))*30;
+ ctx.fillStyle=R.color;ctx.beginPath();ctx.moveTo(-36,-35);ctx.quadraticCurveTo(-58,-42-flex*.35,-78,-34-flex);ctx.lineTo(-75,-27-flex*.8);ctx.quadraticCurveTo(-55,-32-flex*.2,-34,-28);ctx.closePath();ctx.fill();
+ // front fender
+ ctx.beginPath();ctx.moveTo(27,-22);ctx.quadraticCurveTo(50,-31,70,-18);ctx.lineTo(66,-12);ctx.quadraticCurveTo(49,-21,30,-14);ctx.fill();
+ // bars
+ ctx.strokeStyle='#333';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(25,-29);ctx.lineTo(32,-47);ctx.lineTo(44,-50);ctx.stroke();
+ // exhaust
+ ctx.strokeStyle='#777';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(9,12);ctx.quadraticCurveTo(-4,25,-38,1);ctx.stroke();ctx.fillStyle='#999';ctx.fillRect(-47,-3,23,8);
+ ctx.restore();
+}
+function ebike(cx,cy,R){ctx.save();ctx.translate(cx,cy);ctx.rotate(-ang);wheelDraw(-43,20,21);wheelDraw(43,20,21);ctx.strokeStyle=R.color;ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(-43,20);ctx.lineTo(-5,-13);ctx.lineTo(43,20);ctx.lineTo(0,20);ctx.lineTo(-43,20);ctx.stroke();ctx.fillStyle='#222';ctx.fillRect(-11,-11,17,30);ctx.fillStyle='#111';ctx.fillRect(-20,-24,35,7);ctx.restore()}
+function quad(cx,cy,R){ctx.save();ctx.translate(cx,cy);ctx.rotate(-ang);wheelDraw(-48,23,22);wheelDraw(48,23,22);ctx.fillStyle=R.color;ctx.fillRect(-48,-11,96,25);ctx.fillStyle='#222';ctx.fillRect(-20,-22,42,14);ctx.strokeStyle='#aaa';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(18,-15);ctx.lineTo(30,-39);ctx.lineTo(43,-41);ctx.stroke();ctx.restore()}
+function loop(t){let dt=Math.min(.03,(t-last)/1000);last=t,R=r();speed+=((gas?31:0)-(brake?48:8))*dt;speed=Math.max(0,Math.min(R.max,speed));let target=wheel&&speed>7?Math.min(1.05,.25+speed/90):0;ang+=(target-ang)*4.2*dt;if(ang>.35&&speed>9)score+=speed*dt*.55;dist+=speed*dt/3.6;engine();map();let bx=W*.43,by=terrain(bx+dist*11)-30;if(R.type==='DIRT BIKE')dirtbike(bx,by,R);else if(R.type==='E-BIKE')ebike(bx,by,R);else quad(bx,by,R);document.querySelector('#info').innerHTML=`${R.name} • ${R.type}<br>${speed.toFixed(0)} MPH | Wheelie ${score.toFixed(0)} | ${dist.toFixed(0)} m`;requestAnimationFrame(loop)}requestAnimationFrame(loop);
+</script></body></html>
